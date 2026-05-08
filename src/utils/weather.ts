@@ -153,6 +153,33 @@ export function getSuggestions(w: Weather): Suggestion[] {
   return s;
 }
 
+// ─── OpenWeatherMap API response shapes ──────────────────────────────────────
+
+interface OWMWeatherEntry {
+  main: string;
+  description: string;
+  icon: string;
+}
+
+interface OWMCurrentResponse {
+  name: string;
+  sys: { country: string; sunrise: number; sunset: number };
+  main: { temp: number; feels_like: number; humidity: number; pressure: number };
+  wind: { speed: number };
+  weather: OWMWeatherEntry[];
+  visibility: number;
+}
+
+interface OWMForecastItem {
+  dt: number;
+  main: { temp: number };
+  weather: OWMWeatherEntry[];
+}
+
+interface OWMForecastResponse {
+  list: OWMForecastItem[];
+}
+
 // ─── API ─────────────────────────────────────────────────────────────────────
 
 const BASE = "https://api.openweathermap.org/data/2.5";
@@ -163,7 +190,7 @@ function key(): string {
   return k;
 }
 
-function mapWeather(d: any): Weather {
+function mapWeather(d: OWMCurrentResponse): Weather {
   return {
     city: d.name,
     country: d.sys.country,
@@ -181,9 +208,9 @@ function mapWeather(d: any): Weather {
   };
 }
 
-function mapForecast(d: any): DayForecast[] {
-  const days: Record<string, any[]> = {};
-  d.list.forEach((item: any) => {
+function mapForecast(d: OWMForecastResponse): DayForecast[] {
+  const days: Record<string, OWMForecastItem[]> = {};
+  d.list.forEach((item) => {
     const day = new Date(item.dt * 1000).toLocaleDateString("en-US", {
       weekday: "short",
     });
@@ -200,7 +227,7 @@ function mapForecast(d: any): DayForecast[] {
     .slice(0, 5)
     .map(([k, items]) => {
       const [dayName, date] = k.split("|");
-      const temps = items.map((i: any) => i.main.temp);
+      const temps = items.map((i) => i.main.temp);
       const mid = items[Math.floor(items.length / 2)];
       return {
         dayName,
@@ -214,7 +241,7 @@ function mapForecast(d: any): DayForecast[] {
     });
 }
 
-async function get(url: string) {
+async function get<T>(url: string): Promise<T> {
   const res = await fetch(url);
   if (!res.ok) {
     if (res.status === 404)
@@ -223,17 +250,17 @@ async function get(url: string) {
       throw new Error("Invalid API key. Check your .env file.");
     throw new Error("Failed to fetch. Please try again.");
   }
-  return res.json();
+  return res.json() as Promise<T>;
 }
 
 export async function fetchByCity(
   city: string,
 ): Promise<{ weather: Weather; forecast: DayForecast[] }> {
   const [w, f] = await Promise.all([
-    get(
+    get<OWMCurrentResponse>(
       `${BASE}/weather?q=${encodeURIComponent(city)}&units=metric&appid=${key()}`,
     ),
-    get(
+    get<OWMForecastResponse>(
       `${BASE}/forecast?q=${encodeURIComponent(city)}&units=metric&appid=${key()}`,
     ),
   ]);
@@ -245,8 +272,8 @@ export async function fetchByCoords(
   lon: number,
 ): Promise<{ weather: Weather; forecast: DayForecast[] }> {
   const [w, f] = await Promise.all([
-    get(`${BASE}/weather?lat=${lat}&lon=${lon}&units=metric&appid=${key()}`),
-    get(`${BASE}/forecast?lat=${lat}&lon=${lon}&units=metric&appid=${key()}`),
+    get<OWMCurrentResponse>(`${BASE}/weather?lat=${lat}&lon=${lon}&units=metric&appid=${key()}`),
+    get<OWMForecastResponse>(`${BASE}/forecast?lat=${lat}&lon=${lon}&units=metric&appid=${key()}`),
   ]);
   return { weather: mapWeather(w), forecast: mapForecast(f) };
 }
