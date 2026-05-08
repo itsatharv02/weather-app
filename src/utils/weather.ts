@@ -164,7 +164,12 @@ interface OWMWeatherEntry {
 interface OWMCurrentResponse {
   name: string;
   sys: { country: string; sunrise: number; sunset: number };
-  main: { temp: number; feels_like: number; humidity: number; pressure: number };
+  main: {
+    temp: number;
+    feels_like: number;
+    humidity: number;
+    pressure: number;
+  };
   wind: { speed: number };
   weather: OWMWeatherEntry[];
   visibility: number;
@@ -272,8 +277,12 @@ export async function fetchByCoords(
   lon: number,
 ): Promise<{ weather: Weather; forecast: DayForecast[] }> {
   const [w, f] = await Promise.all([
-    get<OWMCurrentResponse>(`${BASE}/weather?lat=${lat}&lon=${lon}&units=metric&appid=${key()}`),
-    get<OWMForecastResponse>(`${BASE}/forecast?lat=${lat}&lon=${lon}&units=metric&appid=${key()}`),
+    get<OWMCurrentResponse>(
+      `${BASE}/weather?lat=${lat}&lon=${lon}&units=metric&appid=${key()}`,
+    ),
+    get<OWMForecastResponse>(
+      `${BASE}/forecast?lat=${lat}&lon=${lon}&units=metric&appid=${key()}`,
+    ),
   ]);
   return { weather: mapWeather(w), forecast: mapForecast(f) };
 }
